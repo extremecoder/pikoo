@@ -2,35 +2,51 @@
 
 name: CI
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push, workflow_dispatch]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  generate-and-push:
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    permissions:
+      contents: write    # Required for pushing to the repository
+    
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      - name: Create OpenQASM Directory
+        run: mkdir -p openqasm
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Generate OpenQASM Circuit
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          cat > openqasm/sample.qasm << EOL
+          OPENQASM 2.0;
+          include "qelib1.inc";
+
+          // Initialize quantum and classical registers
+          qreg q[2];
+          creg c[2];
+
+          // Create a Bell state
+          h q[0];      // Hadamard on first qubit
+          cx q[0],q[1];  // CNOT with first qubit as control, second as target
+
+          // Measure both qubits
+          measure q[0] -> c[0];
+          measure q[1] -> c[1];
+          EOL
+
+      - name: Commit changes
+        run: |
+          git add openqasm/sample.qasm
+          git commit -m "Add generated OpenQASM circuit" || echo "No changes to commit"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
