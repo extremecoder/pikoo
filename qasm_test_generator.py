@@ -19,18 +19,22 @@ class QASMTestGenerator:
 
     def generate_test_cases(self, qasm_code: str) -> List[Dict]:
         prompt = f"""
-        Given the following OpenQASM code:
+        Generate test cases in JSON format for the following OpenQASM code:
 
         {qasm_code}
 
-        Generate a comprehensive set of test cases to verify the circuit's correctness.
-        For each test case, provide:
-        1. Input state
-        2. Expected output state
-        3. Explanation of what aspect is being tested
-        4. Expected measurement probabilities
+        Return a JSON array where each test case has the following format:
+        {{
+            "input_state": "e.g., |00⟩",
+            "expected_output": "e.g., (|00⟩ + |11⟩)/√2",
+            "description": "what aspect is being tested",
+            "measurement_probabilities": {{
+                "00": 0.5,
+                "11": 0.5
+            }}
+        }}
 
-        Format the response as a JSON list of test cases.
+        Ensure the response is a valid JSON array of test cases.
         """
 
         payload = {
@@ -47,13 +51,37 @@ class QASMTestGenerator:
             response = requests.post(self.api_url, headers=self.headers, json=payload)
             response.raise_for_status()
             
-            # Parse the response and extract the test cases
+            # Print raw response for debugging
+            print("Raw API Response:")
             result = response.json()
-            test_cases = json.loads(result['choices'][0]['text'])
-            return test_cases
+            print(result)
+            
+            # Try to extract and parse the JSON from the response text
+            response_text = result['choices'][0]['text'].strip()
+            print("\nExtracted Text:")
+            print(response_text)
+            
+            # Try to find JSON array in the response
+            start_idx = response_text.find('[')
+            end_idx = response_text.rfind(']')
+            
+            if start_idx != -1 and end_idx != -1:
+                json_str = response_text[start_idx:end_idx + 1]
+                test_cases = json.loads(json_str)
+                return test_cases
+            else:
+                print("Error: Could not find JSON array in response")
+                return []
 
+        except requests.exceptions.RequestException as e:
+            print(f"API Request Error: {str(e)}")
+            return []
+        except json.JSONDecodeError as e:
+            print(f"JSON Parsing Error: {str(e)}")
+            print("Response text was:", response_text)
+            return []
         except Exception as e:
-            print(f"Error generating test cases: {str(e)}")
+            print(f"Unexpected Error: {str(e)}")
             return []
 
     def save_test_cases(self, test_cases: List[Dict], output_file: str):
