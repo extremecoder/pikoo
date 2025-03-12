@@ -11,10 +11,19 @@
   {
     "input_state": "|10\u27e9",
     "expected_output": "(|10\u27e9 - |01\u27e9)/\u221a2",
-    "description": "Bell state generation test with first qubit flipped",
+    "description": "Bell state generation test with initial state flipped",
     "measurement_probabilities": {
       "10": 0.5,
       "01": 0.5
+    }
+  },
+  {
+    "input_state": "|01\u27e9",
+    "expected_output": "(|01\u27e9 - |10\u27e9)/\u221a2",
+    "description": "Bell state generation test with second qubit flipped",
+    "measurement_probabilities": {
+      "01": 0.5,
+      "10": 0.5
     }
   }
 ]
