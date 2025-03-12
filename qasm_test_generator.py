@@ -18,26 +18,34 @@ class QASMTestGenerator:
             return file.read()
 
     def generate_test_cases(self, qasm_code: str) -> List[Dict]:
-        prompt = f"""
-        Generate test cases for this OpenQASM circuit. Return ONLY a JSON array of test cases with no additional text.
-        Each test case should be an object with these exact fields: "input_state", "expected_output", "description", and "measurement_probabilities".
+        prompt = f"""<instruction>Given an OpenQASM circuit, generate test cases in JSON format. Return only valid JSON.</instruction>
 
-        OpenQASM code:
-        {qasm_code}
+<context>
+The circuit is:
+{qasm_code}
 
-        Example of expected format:
-        [
-            {{
-                "input_state": "|00⟩",
-                "expected_output": "(|00⟩ + |11⟩)/√2",
-                "description": "Bell state generation test",
-                "measurement_probabilities": {{
-                    "00": 0.5,
-                    "11": 0.5
-                }}
-            }}
-        ]
-        """
+You should return a JSON array of test cases. Each test case should have:
+- input_state: The initial quantum state
+- expected_output: The expected final state
+- description: What aspect is being tested
+- measurement_probabilities: Expected measurement probabilities
+</context>
+
+<example_output>
+[
+    {{
+        "input_state": "|00⟩",
+        "expected_output": "(|00⟩ + |11⟩)/√2",
+        "description": "Bell state generation test",
+        "measurement_probabilities": {{
+            "00": 0.5,
+            "11": 0.5
+        }}
+    }}
+]
+</example_output>
+
+<response>"""
 
         payload = {
             "model": "mistralai/Mistral-7B-Instruct-v0.2",
@@ -45,54 +53,52 @@ class QASMTestGenerator:
             "max_tokens": 1000,
             "temperature": 0.7,
             "top_p": 0.9,
-            "stop": ["\n\n"],
+            "stop": ["</response>"],
             "frequency_penalty": 0,
             "presence_penalty": 0
         }
 
         try:
-            # Print API key length to verify it's set (without revealing it)
-            print(f"API Key length: {len(self.api_key)}")
-            
-            # Make the API request
             print("Making API request...")
             response = requests.post(self.api_url, headers=self.headers, json=payload)
-            
-            # Print response status and headers
             print(f"Response status: {response.status_code}")
-            print("Response headers:", dict(response.headers))
             
-            # Print raw response text
-            print("Raw response text:", response.text)
-            
-            # Parse response
+            if response.status_code != 200:
+                print(f"Error response: {response.text}")
+                return []
+
             result = response.json()
+            print("Raw API response:", json.dumps(result, indent=2))
+            
             if 'choices' not in result or not result['choices']:
                 print("Error: No choices in response")
                 return []
                 
             response_text = result['choices'][0]['text'].strip()
-            print("Model output:", response_text)
+            print("\nModel output:", response_text)
             
-            # Try to parse as JSON
+            # Try to find JSON array in the response
             try:
-                test_cases = json.loads(response_text)
-                if isinstance(test_cases, list):
+                start_idx = response_text.find('[')
+                end_idx = response_text.rfind(']')
+                
+                if start_idx != -1 and end_idx != -1:
+                    json_str = response_text[start_idx:end_idx + 1]
+                    test_cases = json.loads(json_str)
+                    if not isinstance(test_cases, list):
+                        print("Error: Parsed JSON is not an array")
+                        return []
                     return test_cases
                 else:
-                    print("Error: Response is not a JSON array")
+                    print("Error: Could not find JSON array in response")
                     return []
             except json.JSONDecodeError as je:
                 print(f"JSON Parse Error: {str(je)}")
+                print("Failed to parse:", json_str)
                 return []
                 
-        except requests.exceptions.RequestException as e:
-            print(f"API Request Error: {str(e)}")
-            if hasattr(e.response, 'text'):
-                print("Error response:", e.response.text)
-            return []
         except Exception as e:
-            print(f"Unexpected Error: {str(e)}")
+            print(f"Error generating test cases: {str(e)}")
             return []
 
     def save_test_cases(self, test_cases: List[Dict], output_file: str):
@@ -110,22 +116,22 @@ def main():
     
     generator = QASMTestGenerator(api_key)
     
-    # Path to your QASM file
-    qasm_file = "openqasm/sample.qasm"
-    
     try:
         # Read QASM code
+        qasm_file = "openqasm/sample.qasm"
         qasm_code = generator.read_qasm_file(qasm_file)
         print(f"Successfully read QASM file: {qasm_file}")
+        print("\nQASM Code:")
+        print(qasm_code)
         
         # Generate test cases
-        print("Generating test cases...")
+        print("\nGenerating test cases...")
         test_cases = generator.generate_test_cases(qasm_code)
         
         # Save test cases
         output_file = "openqasm/test_cases.json"
         generator.save_test_cases(test_cases, output_file)
-        print(f"Test cases saved to {output_file}")
+        print(f"\nTest cases saved to {output_file}")
 
         # Print summary
         print(f"\nGenerated {len(test_cases)} test cases:")
