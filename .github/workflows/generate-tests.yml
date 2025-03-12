@@ -15,20 +15,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Python with pyenv
+        uses: gabrielfalcao/pyenv-action@v14
         with:
-          python-version: '3.x'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
+          default: 3.10.13
+          command: |
+            pyenv install 3.10.13
+            pyenv local 3.10.13
+            python -m venv .venv
+            source .venv/bin/activate
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
 
       - name: Generate test cases
         env:
           TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-        run: python qasm_test_generator.py
+        run: |
+          source .venv/bin/activate
+          python qasm_test_generator.py
 
       - name: Commit test cases
         run: |

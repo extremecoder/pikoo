@@ -1,0 +1,15 @@
+# Model configuration
+model: "mistralai/Mistral-7B-Instruct-v0.2"
+max_tokens: 1000
+temperature: 0.7
+top_p: 0.9
+
+# Test generation settings
+retry_attempts: 3
+retry_delay: 2
+timeout: 30
+
+# Quantum backend settings
+default_backend: "qiskit"
+shots: 1000
+measurement_tolerance: 0.1
