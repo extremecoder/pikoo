@@ -32,6 +32,9 @@ jobs:
         run: |
           python qasm_test_generator.py
 
+      - name: Run tests
+        run: python test_runner.py   
+         
       - name: Commit test cases
         run: |
           git config --global user.name 'github-actions[bot]'
