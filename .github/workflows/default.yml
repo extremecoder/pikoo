@@ -1,49 +1,47 @@
 name: CI
 
 on:
-  # Triggers the workflow on push to any branch
   push:
   pull_request:
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write    # Required for pushing to the repository
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
       
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
       - name: Create OpenQASM Directory
         run: mkdir -p openqasm
 
-      - name: Generate OpenQASM Circuit
-        run: |
-          cat > openqasm/sample.qasm << EOL
-          OPENQASM 2.0;
-          include "qelib1.inc";
+      - name: Convert Quantum Circuit to OpenQASM
+        run: python quantum_converter.py
+        env:
+          QUANTUM_PLATFORM: ${{ github.event.inputs.platform || 'qiskit' }}
 
-          // Initialize quantum and classical registers
-          qreg q[2];
-          creg c[2];
-
-          // Create a Bell state
-          h q[0];      // Hadamard on first qubit
-          cx q[0],q[1];  // CNOT with first qubit as control, second as target
-
-          // Measure both qubits
-          measure q[0] -> c[0];
-          measure q[1] -> c[1];
-          EOL
+      - name: Run Tests
+        run: python test_runner.py
 
       - name: Commit changes
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add openqasm/sample.qasm
-          git commit -m "Add generated OpenQASM circuit" || echo "No changes to commit"
+          git commit -m "Update OpenQASM circuit from quantum code" || echo "No changes to commit"
 
       - name: Push changes
         uses: ad-m/github-push-action@master
