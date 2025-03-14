@@ -11,7 +11,7 @@
   {
     "input_state": "|10\u27e9",
     "expected_output": "(|10\u27e9 - |01\u27e9)/\u221a2",
-    "description": "Bell state generation test with initial state flipped",
+    "description": "Bell state generation test with X on q[0]",
     "measurement_probabilities": {
       "10": 0.5,
       "01": 0.5
@@ -20,10 +20,19 @@
   {
     "input_state": "|01\u27e9",
     "expected_output": "(|01\u27e9 - |10\u27e9)/\u221a2",
-    "description": "Bell state generation test with second qubit flipped",
+    "description": "Bell state generation test with X on q[1]",
     "measurement_probabilities": {
       "01": 0.5,
       "10": 0.5
+    }
+  },
+  {
+    "input_state": "|11\u27e9",
+    "expected_output": "(|00\u27e9 - |11\u27e9)/\u221a2",
+    "description": "Bell state generation test with X on both q[0] and q[1]",
+    "measurement_probabilities": {
+      "00": 0.5,
+      "11": 0.5
     }
   }
 ]
