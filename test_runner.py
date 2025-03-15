@@ -5,8 +5,10 @@ from qiskit.quantum_info import state_fidelity
 import qiskit_qasm3_import
 import json
 import numpy as np
+import argparse
 from typing import Dict, List, Optional
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 class QuantumBackend(ABC):
     @abstractmethod
@@ -28,10 +30,12 @@ class QASMTestRunner:
         self.backend = backend or QiskitBackend()
         
     def load_test_cases(self):
+        """Load test cases from the specified JSON file"""
         with open(self.test_cases_file, 'r') as f:
             return json.load(f)
             
     def load_qasm_circuit(self):
+        """Load the QASM circuit from the specified file"""
         circuit = QuantumCircuit.from_qasm_file(self.qasm_file)
         return circuit
         
@@ -60,21 +64,28 @@ class QASMTestRunner:
         """Run a single test case and return results"""
         num_qubits = base_circuit.num_qubits
         
-        # Create circuit with input state preparation
-        input_circuit = self.prepare_input_state(test_case['input_state'], num_qubits)
+        # Create a new circuit for this test case
+        test_circuit = QuantumCircuit(num_qubits, num_qubits)
         
-        # Combine input preparation with the circuit under test
-        complete_circuit = input_circuit.compose(base_circuit)
+        # Apply the input state preparation based on the input state
+        input_state = test_case['input_state'].replace('|', '').replace('⟩', '').strip()
+        for i, bit in enumerate(reversed(input_state)):
+            if bit == '1':
+                test_circuit.x(i)
+        
+        # Add the operations from the base circuit (excluding measurements)
+        for instr in base_circuit.data:
+            # Skip measurement operations from the base circuit
+            if instr.operation.name != 'measure':
+                test_circuit.append(instr.operation, instr.qubits)
         
         # Add measurements
-        cr = ClassicalRegister(num_qubits)
-        complete_circuit.add_register(cr)
-        complete_circuit.measure_all()
+        test_circuit.measure_all()
         
         # Run the circuit using the selected backend
-        raw_counts = self.backend.run_circuit(complete_circuit, shots=1000)
+        raw_counts = self.backend.run_circuit(test_circuit, shots=1000)
         
-        # Process the measurement results to match expected format
+        # Process the measurement results
         counts = {}
         for state, count in raw_counts.items():
             processed_state = self.process_measurement_result(state)
@@ -88,6 +99,7 @@ class QASMTestRunner:
         expected_probs = test_case['measurement_probabilities']
         tolerance = 0.1  # 10% tolerance for statistical fluctuations
         
+        # Check if the measured states match the expected states with correct probabilities
         matches = all(
             abs(probabilities.get(state, 0) - prob) <= tolerance
             for state, prob in expected_probs.items()
@@ -132,10 +144,37 @@ class QASMTestRunner:
         return results
 
 def main():
+    """Main function to run tests on an OpenQASM circuit"""
+    parser = argparse.ArgumentParser(description="Run tests on OpenQASM circuits")
+    parser.add_argument(
+        "--qasm-file", 
+        default="openqasm/sample.qasm",
+        help="Path to the OpenQASM file (default: openqasm/sample.qasm)"
+    )
+    parser.add_argument(
+        "--test-cases", 
+        default="openqasm/test_cases.json",
+        help="Path to the test cases JSON file (default: openqasm/test_cases.json)"
+    )
+    
+    args = parser.parse_args()
+    
+    # Check if the files exist
+    qasm_file = Path(args.qasm_file)
+    test_cases_file = Path(args.test_cases)
+    
+    if not qasm_file.exists():
+        print(f"Error: QASM file not found: {qasm_file}")
+        return
+        
+    if not test_cases_file.exists():
+        print(f"Error: Test cases file not found: {test_cases_file}")
+        return
+    
     # Initialize the test runner
     runner = QASMTestRunner(
-        qasm_file="openqasm/sample.qasm",
-        test_cases_file="openqasm/test_cases.json"
+        qasm_file=str(qasm_file),
+        test_cases_file=str(test_cases_file)
     )
     
     try:
