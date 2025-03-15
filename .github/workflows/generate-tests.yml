@@ -1,9 +1,6 @@
 name: Generate QASM Tests
 
 on:
-  push:
-    paths:
-      - 'openqasm/**'
   workflow_dispatch:
 
 jobs:

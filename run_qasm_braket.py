@@ -233,6 +233,7 @@ def main():
     parser.add_argument('--qasm', default='openqasm/sample.qasm', help='Path to QASM file')
     parser.add_argument('--tests', default='openqasm/test_cases.json', help='Path to test cases JSON file')
     parser.add_argument('--shots', type=int, default=1000, help='Number of shots to run')
+    parser.add_argument('--run-tests', action='store_true', help='Run test cases against the circuit')
     args = parser.parse_args()
 
     try:
@@ -240,8 +241,8 @@ def main():
         with open(args.qasm, 'r') as f:
             qasm_str = f.read()
         
-        # Check if test cases file is provided
-        if args.tests:
+        # Only run tests if explicitly requested with --run-tests
+        if args.run_tests and args.tests:
             try:
                 # Load the test cases
                 with open(args.tests, 'r') as f:
